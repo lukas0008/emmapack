@@ -15,7 +15,7 @@ fn run_server() {
 fn run_client() {
   let mut client_connected_to_server = TcpStream::connect("127.0.0.1:1234").unwrap();
   client_connected_to_server
-    .send_packet_sync("hello")
+    .send_packet_sync(&"hello")
     .unwrap();
 }
 
