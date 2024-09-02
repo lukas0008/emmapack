@@ -10,9 +10,9 @@ use tokio::io::AsyncWriteExt;
 #[cfg(feature = "tokio")]
 pub trait PacketSendable: AsyncWriteExt + Send + Sync + Unpin {
   type SendError;
-  fn send_packet<D: PacketSerializable + Send + Clone + Sync + 'static>(
+  fn send_packet<D: PacketSerializable + Send + Sync + 'static>(
     &mut self,
-    packet: D,
+    packet: &D,
   ) -> impl Future<Output = Result<(), Self::SendError>>;
 }
 
@@ -22,7 +22,7 @@ where
   T: AsyncWriteExt + Send + Sync + Unpin,
 {
   type SendError = ();
-  async fn send_packet<D: PacketSerializable>(&mut self, packet: D) -> Result<(), Self::SendError> {
+  async fn send_packet<D: PacketSerializable>(&mut self, packet: &D) -> Result<(), Self::SendError> {
     let data = packet.serialize_packet().map_err(|_| ())?;
     let mut send = (data.len() as u64).to_be_bytes().to_vec();
     send.extend(data);
