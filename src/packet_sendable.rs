@@ -35,9 +35,9 @@ where
 
 pub trait PacketSendableSync: Write {
   type SendError;
-  fn send_packet_sync<D: PacketSerializable + Send + Clone + Sync + 'static>(
+  fn send_packet_sync<D: PacketSerializable + Send + Sync + 'static>(
     &mut self,
-    packet: D,
+    packet: &D,
   ) -> Result<(), Self::SendError>;
 }
 
@@ -46,7 +46,7 @@ where
   T: Write,
 {
   type SendError = ();
-  fn send_packet_sync<D: PacketSerializable>(&mut self, packet: D) -> Result<(), Self::SendError> {
+  fn send_packet_sync<D: PacketSerializable>(&mut self, packet: &D) -> Result<(), Self::SendError> {
     let data = packet.serialize_packet().map_err(|_| ())?;
     let mut send = (data.len() as u64).to_be_bytes().to_vec();
     send.extend(data);
