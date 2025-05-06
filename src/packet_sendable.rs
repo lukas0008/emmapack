@@ -1,5 +1,7 @@
 use std::io::Write;
 
+use crate::DefaultError;
+
 use super::PacketSerializable;
 
 #[cfg(feature = "tokio")]
@@ -10,7 +12,10 @@ use tokio::io::AsyncWriteExt;
 #[cfg(feature = "tokio")]
 pub trait PacketSendable: AsyncWriteExt + Send + Sync + Unpin {
   type SendError;
-  fn send_packet<D: PacketSerializable + Send + Sync + 'static>(
+  type SerializeError;
+  fn send_packet<
+    D: PacketSerializable<SerializeError = Self::SerializeError> + Send + Sync + 'static,
+  >(
     &mut self,
     packet: &D,
   ) -> impl Future<Output = Result<(), Self::SendError>>;
@@ -21,21 +26,28 @@ impl<T> PacketSendable for T
 where
   T: AsyncWriteExt + Send + Sync + Unpin,
 {
-  type SendError = ();
-  async fn send_packet<D: PacketSerializable>(&mut self, packet: &D) -> Result<(), Self::SendError> {
-    let data = packet.serialize_packet().map_err(|_| ())?;
+  type SerializeError = bincode::Error;
+  type SendError = DefaultError;
+  async fn send_packet<
+    D: PacketSerializable<SerializeError = Self::SerializeError> + Send + Sync + 'static,
+  >(
+    &mut self,
+    packet: &D,
+  ) -> Result<(), Self::SendError> {
+    let data = packet.serialize_packet()?;
     let mut send = (data.len() as u64).to_be_bytes().to_vec();
     send.extend(data);
-    let res = <T as AsyncWriteExt>::write_all(self, &send)
-      .await
-      .map_err(|_| ())?;
+    let res = <T as AsyncWriteExt>::write_all(self, &send).await?;
     Ok(res)
   }
 }
 
 pub trait PacketSendableSync: Write {
   type SendError;
-  fn send_packet_sync<D: PacketSerializable + Send + Sync + 'static>(
+  type SerializeError;
+  fn send_packet_sync<
+    D: PacketSerializable<SerializeError = Self::SerializeError> + Send + Sync + 'static,
+  >(
     &mut self,
     packet: &D,
   ) -> Result<(), Self::SendError>;
@@ -45,12 +57,16 @@ impl<T> PacketSendableSync for T
 where
   T: Write,
 {
-  type SendError = ();
-  fn send_packet_sync<D: PacketSerializable>(&mut self, packet: &D) -> Result<(), Self::SendError> {
-    let data = packet.serialize_packet().map_err(|_| ())?;
+  type SendError = DefaultError;
+  type SerializeError = bincode::Error;
+  fn send_packet_sync<D: PacketSerializable<SerializeError = Self::SerializeError>>(
+    &mut self,
+    packet: &D,
+  ) -> Result<(), Self::SendError> {
+    let data = packet.serialize_packet()?;
     let mut send = (data.len() as u64).to_be_bytes().to_vec();
     send.extend(data);
-    let res = T::write_all(self, &send).map_err(|_| ())?;
+    let res = T::write_all(self, &send)?;
     Ok(res)
   }
 }
